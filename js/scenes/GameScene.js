@@ -17,12 +17,15 @@ class GameScene extends Phaser.Scene {
         // —— 纹理生成 ——
         this._makeTexture('player_tex', 0x00ff88, TILE_SIZE - 4);
         this._makeTexture('enemy_tex', 0xff4444, TILE_SIZE - 4);
+        this._makeTexture('bullet_tex', 0xffff44, 8);
         this._makeTexture('wall_tex', 0x3a3a5c, TILE_SIZE);
         this._makeTexture('floor_tex', 0x1a1a2e, TILE_SIZE);
 
         // —— 状态 ——
         this.hp = 5;
-        this.atkCooldown = 0;
+        this.shootCooldown = 0;
+        this.lastDirX = 1;
+        this.lastDirY = 0;
 
         // —— HUD ——
         this.hpText = this.add.text(16, 16, '❤️ x ' + this.hp, {
@@ -44,6 +47,9 @@ class GameScene extends Phaser.Scene {
         this.player.setCollideWorldBounds(true);
         this.player.setDepth(10);
 
+        // —— 子弹 ——
+        this.bullets = this.physics.add.group();
+
         // —— 敌人 ——
         this.enemies = this.physics.add.group();
         this._spawnEnemies();
@@ -51,6 +57,8 @@ class GameScene extends Phaser.Scene {
         // —— 碰撞 ——
         this.physics.add.collider(this.player, this.wallGroup);
         this.physics.add.collider(this.enemies, this.wallGroup);
+        this.physics.add.collider(this.bullets, this.wallGroup, this._hitWall, null, this);
+        this.physics.add.overlap(this.bullets, this.enemies, this._bulletHitEnemy, null, this);
         this.physics.add.overlap(this.player, this.enemies, this._hitEnemy, null, this);
 
         // —— 输入 ——
@@ -63,10 +71,12 @@ class GameScene extends Phaser.Scene {
             DOWN: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN),
             LEFT: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
             RIGHT: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
+            J: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.J),
+            SPACE: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
         };
 
         // 提示
-        this.add.text(width / 2, height - 20, 'WASD / 方向键移动 · 靠近敌人自动攻击', {
+        this.add.text(width / 2, height - 20, 'WASD/方向键移动 · J/空格射击', {
             fontSize: '13px', color: '#666688', fontFamily: 'monospace'
         }).setOrigin(0.5);
     }
@@ -172,26 +182,52 @@ class GameScene extends Phaser.Scene {
         }
     }
 
-    // ======= 交互 =======
-    _hitEnemy(player, enemy) {
-        if (this.atkCooldown > 0) return;
-        this.atkCooldown = 300;
+    // ======= 子弹 =======
+    _shootBullet() {
+        if (this.shootCooldown > 0) return;
+        this.shootCooldown = 250;
+
+        const bx = this.player.x + this.lastDirX * 20;
+        const by = this.player.y + this.lastDirY * 20;
+        const bullet = this.bullets.create(bx, by, 'bullet_tex');
+        bullet.setDepth(8);
+        bullet.setDisplaySize(8, 8);
+        bullet.body.setCircle(4);
+        bullet.setVelocity(this.lastDirX * 400, this.lastDirY * 400);
+        bullet.setCollideWorldBounds(true);
+        // 出界自动销毁
+        this.time.delayedCall(2000, () => { if (bullet.active) bullet.destroy(); });
+    }
+
+    _hitWall(bullet) {
+        if (bullet.active) bullet.destroy();
+    }
+
+    _bulletHitEnemy(bullet, enemy) {
+        if (!bullet.active || !enemy.active) return;
+        bullet.destroy();
 
         enemy.hp -= 1;
         // 击退
-        const angle = Phaser.Math.Angle.Between(player.x, player.y, enemy.x, enemy.y);
-        enemy.setVelocity(Math.cos(angle) * 200, Math.sin(angle) * 200);
-        this.time.delayedCall(150, () => { if (enemy.active) enemy.setVelocity(0, 0); });
+        const angle = Phaser.Math.Angle.Between(bullet.x, bullet.y, enemy.x, enemy.y);
+        enemy.setVelocity(Math.cos(angle) * 150, Math.sin(angle) * 150);
+        this.time.delayedCall(100, () => { if (enemy.active) enemy.setVelocity(0, 0); });
 
         if (enemy.hp <= 0) {
             enemy.destroy();
         }
+    }
 
-        // 玩家受伤（敌人反击）
+    // ======= 碰撞伤害(被敌人碰到) =======
+    _hitEnemy(player, enemy) {
+        if (!enemy.active) return;
         this.hp -= 1;
         this.hpText.setText('❤️ x ' + this.hp);
         player.setTint(0xff0000);
         this.time.delayedCall(150, () => { if (player.active) player.setTint(0xffffff); });
+        // 击退玩家
+        const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, player.x, player.y);
+        player.setVelocity(Math.cos(angle) * 250, Math.sin(angle) * 250);
 
         if (this.hp <= 0) {
             this._gameOver();
@@ -207,6 +243,7 @@ class GameScene extends Phaser.Scene {
         this.floorNumber++;
         this.floorText.setText('第 ' + this.floorNumber + ' 层');
         // 清空并重生整个地牢
+        this.bullets.clear(true, true);
         this.enemies.clear(true, true);
         this._generateDungeon();
         this.player.setPosition(this.startX, this.startY);
@@ -215,7 +252,7 @@ class GameScene extends Phaser.Scene {
 
     // ======= 更新循环 =======
     update(time, delta) {
-        if (this.atkCooldown > 0) this.atkCooldown -= delta;
+        if (this.shootCooldown > 0) this.shootCooldown -= delta;
 
         // 玩家移动（俯视角 WASD / 方向键）
         const speed = 160;
@@ -226,7 +263,17 @@ class GameScene extends Phaser.Scene {
         else if (this.keys.S.isDown || this.keys.DOWN.isDown) vy = speed;
         // 归一化斜向移动
         if (vx !== 0 && vy !== 0) { vx *= 0.707; vy *= 0.707; }
+
+        // 记录朝向
+        if (vx !== 0) this.lastDirX = vx > 0 ? 1 : -1;
+        if (vy !== 0) this.lastDirY = vy > 0 ? 1 : -1;
+
         this.player.setVelocity(vx, vy);
+
+        // 射击
+        if (this.keys.J.isDown || this.keys.SPACE.isDown) {
+            this._shootBullet();
+        }
 
         // 敌人 AI：朝向玩家移动
         this.enemies.getChildren().forEach(enemy => {
