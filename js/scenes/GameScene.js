@@ -195,15 +195,15 @@ class GameScene extends Phaser.Scene {
         if (this.shootCooldown > 0) return;
         this.shootCooldown = 250;
 
-        // 子弹从枪口发出
+        // 子弹从枪口发出，只沿水平方向
         const offsetX = this.facingLeft ? -22 : 22;
         const bx = this.player.x + offsetX;
-        const by = this.player.y + this.lastDirY * 6;
+        const by = this.player.y;
         const bullet = this.bullets.create(bx, by, 'bullet_tex');
         bullet.setDepth(8);
         bullet.setDisplaySize(8, 8);
         bullet.body.setCircle(4);
-        bullet.setVelocity(this.lastDirX * 400, this.lastDirY * 400);
+        bullet.setVelocity(this.facingLeft ? -400 : 400, 0);
         bullet.setCollideWorldBounds(true);
         // 出界自动销毁
         this.time.delayedCall(2000, () => { if (bullet.active) bullet.destroy(); });
