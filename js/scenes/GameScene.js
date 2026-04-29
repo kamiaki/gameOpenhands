@@ -16,6 +16,7 @@ class GameScene extends Phaser.Scene {
 
         // —— 纹理生成 ——
         this._makeTexture('player_tex', 0x00ff88, TILE_SIZE - 4);
+        this._makeTexture('gun_tex', 0x66ffcc, 12, 6);
         this._makeTexture('enemy_tex', 0xff4444, TILE_SIZE - 4);
         this._makeTexture('bullet_tex', 0xffff44, 8);
         this._makeTexture('wall_tex', 0x3a3a5c, TILE_SIZE);
@@ -26,6 +27,7 @@ class GameScene extends Phaser.Scene {
         this.shootCooldown = 0;
         this.lastDirX = 1;
         this.lastDirY = 0;
+        this.facingLeft = false;
 
         // —— HUD ——
         this.hpText = this.add.text(16, 16, '❤️ x ' + this.hp, {
@@ -46,6 +48,11 @@ class GameScene extends Phaser.Scene {
         this.player = this.physics.add.sprite(this.startX, this.startY, 'player_tex');
         this.player.setCollideWorldBounds(true);
         this.player.setDepth(10);
+
+        // —— 枪（标识朝向的小方块） ——
+        this.gun = this.add.sprite(this.startX + 14, this.startY, 'gun_tex');
+        this.gun.setDepth(11);
+        this.gun.setOrigin(1, 0.5);
 
         // —— 子弹 ——
         this.bullets = this.physics.add.group();
@@ -82,11 +89,12 @@ class GameScene extends Phaser.Scene {
     }
 
     // ======= 纹理生成 =======
-    _makeTexture(key, color, size) {
+    _makeTexture(key, color, w, h) {
+        h = h || w;
         const g = this.add.graphics();
         g.fillStyle(color, 1);
-        g.fillRect(0, 0, size, size);
-        g.generateTexture(key, size, size);
+        g.fillRect(0, 0, w, h);
+        g.generateTexture(key, w, h);
         g.destroy();
     }
 
@@ -187,8 +195,10 @@ class GameScene extends Phaser.Scene {
         if (this.shootCooldown > 0) return;
         this.shootCooldown = 250;
 
-        const bx = this.player.x + this.lastDirX * 20;
-        const by = this.player.y + this.lastDirY * 20;
+        // 子弹从枪口发出
+        const offsetX = this.facingLeft ? -22 : 22;
+        const bx = this.player.x + offsetX;
+        const by = this.player.y + this.lastDirY * 6;
         const bullet = this.bullets.create(bx, by, 'bullet_tex');
         bullet.setDepth(8);
         bullet.setDisplaySize(8, 8);
@@ -247,6 +257,7 @@ class GameScene extends Phaser.Scene {
         this.enemies.clear(true, true);
         this._generateDungeon();
         this.player.setPosition(this.startX, this.startY);
+        this.gun.setPosition(this.startX + 14, this.startY);
         this._spawnEnemies();
     }
 
@@ -265,10 +276,19 @@ class GameScene extends Phaser.Scene {
         if (vx !== 0 && vy !== 0) { vx *= 0.707; vy *= 0.707; }
 
         // 记录朝向
-        if (vx !== 0) this.lastDirX = vx > 0 ? 1 : -1;
+        if (vx !== 0) { this.lastDirX = vx > 0 ? 1 : -1; this.facingLeft = vx < 0; }
         if (vy !== 0) this.lastDirY = vy > 0 ? 1 : -1;
 
         this.player.setVelocity(vx, vy);
+
+        // 枪跟着玩家，朝向哪边枪就在哪边
+        if (this.facingLeft) {
+            this.gun.setPosition(this.player.x - 14, this.player.y);
+            this.gun.setScale(-1, 1);
+        } else {
+            this.gun.setPosition(this.player.x + 14, this.player.y);
+            this.gun.setScale(1, 1);
+        }
 
         // 射击
         if (this.keys.J.isDown || this.keys.SPACE.isDown) {
