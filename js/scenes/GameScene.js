@@ -47,10 +47,11 @@ class GameScene extends Phaser.Scene {
         // —— 玩家 ——
         this.player = this.physics.add.sprite(this.startX, this.startY, 'player_tex');
         this.player.setCollideWorldBounds(true);
+        this.player.body.setAllowGravity(false);
         this.player.setDepth(10);
 
-        // —— 枪（标识朝向的小方块） ——
-        this.gun = this.add.sprite(this.startX + 14, this.startY, 'gun_tex');
+        // —— 枪（标识朝向，从身体伸出） ——
+        this.gun = this.add.sprite(this.startX + 20, this.startY, 'gun_tex');
         this.gun.setDepth(11);
         this.gun.setOrigin(1, 0.5);
 
@@ -184,6 +185,7 @@ class GameScene extends Phaser.Scene {
             const pos = this._randomFloorTile();
             const enemy = this.enemies.create(pos.x, pos.y, 'enemy_tex');
             enemy.setDepth(5);
+            enemy.body.setAllowGravity(false);
             enemy.hp = 2;
             enemy.speed = 50 + Math.random() * 30;
             enemy.setCollideWorldBounds(true);
@@ -195,14 +197,13 @@ class GameScene extends Phaser.Scene {
         if (this.shootCooldown > 0) return;
         this.shootCooldown = 250;
 
-        // 子弹从枪口发出，只沿水平方向
-        const offsetX = this.facingLeft ? -22 : 22;
+        // 子弹从枪口发出，纯水平方向
+        const offsetX = this.facingLeft ? -26 : 26;
         const bx = this.player.x + offsetX;
         const by = this.player.y;
         const bullet = this.bullets.create(bx, by, 'bullet_tex');
         bullet.setDepth(8);
-        bullet.setDisplaySize(8, 8);
-        bullet.body.setCircle(4);
+        bullet.body.setAllowGravity(false);
         bullet.setVelocity(this.facingLeft ? -400 : 400, 0);
         bullet.setCollideWorldBounds(true);
         // 出界自动销毁
@@ -281,12 +282,12 @@ class GameScene extends Phaser.Scene {
 
         this.player.setVelocity(vx, vy);
 
-        // 枪跟着玩家，朝向哪边枪就在哪边
+        // 枪跟着玩家（伸出身体外侧）
         if (this.facingLeft) {
-            this.gun.setPosition(this.player.x - 14, this.player.y);
+            this.gun.setPosition(this.player.x - 20, this.player.y);
             this.gun.setScale(-1, 1);
         } else {
-            this.gun.setPosition(this.player.x + 14, this.player.y);
+            this.gun.setPosition(this.player.x + 20, this.player.y);
             this.gun.setScale(1, 1);
         }
 
