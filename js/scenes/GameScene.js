@@ -52,7 +52,7 @@ class GameScene extends Phaser.Scene {
         // —— 枪（标识朝向，从身体伸出） ——
         this.gun = this.add.sprite(this.startX + 20, this.startY, 'gun_tex');
         this.gun.setDepth(11);
-        this.gun.setOrigin(1, 0.5);
+        this.gun.setOrigin(0, 0.5);
 
         // —— 子弹 ——
         this.bullets = this.physics.add.group();
@@ -196,14 +196,26 @@ class GameScene extends Phaser.Scene {
         if (this.shootCooldown > 0) return;
         this.shootCooldown = 250;
 
-        // 子弹从枪口发出，纯水平方向
-        const dir = this.lastDirX < 0 ? -1 : 1;
-        const bx = this.player.x + dir * 26;
-        const by = this.player.y;
+        let bx = this.player.x, by = this.player.y;
+        let vx = 0, vy = 0;
+        if (this.lastDirX !== 0) {
+            bx += this.lastDirX * 26;
+            by = this.player.y;
+            vx = this.lastDirX * 400;
+        } else if (this.lastDirY < 0) {
+            bx = this.player.x;
+            by = this.player.y - 26;
+            vy = -400;
+        } else if (this.lastDirY > 0) {
+            bx = this.player.x;
+            by = this.player.y + 26;
+            vy = 400;
+        }
+
         const bullet = this.bullets.create(bx, by, 'bullet_tex');
         bullet.setDepth(8);
         bullet.body.setAllowGravity(false);
-        bullet.setVelocity(dir * 400, 0);
+        bullet.setVelocity(vx, vy);
         bullet.setCollideWorldBounds(true);
         // 出界自动销毁
         this.time.delayedCall(2000, () => { if (bullet.active) bullet.destroy(); });
@@ -281,11 +293,26 @@ class GameScene extends Phaser.Scene {
 
         this.player.setVelocity(vx, vy);
 
-        // 枪跟着玩家，根据最后朝向左右切换
-        const gunOnLeft = this.lastDirX < 0;
-        const gunOffX = gunOnLeft ? -20 : 20;
-        this.gun.setPosition(this.player.x + gunOffX, this.player.y);
-        this.gun.setScale(gunOnLeft ? -1 : 1, 1);
+        // 枪跟着玩家，朝四个方向旋转
+        let gx = this.player.x, gy = this.player.y, angle = 0;
+        if (this.lastDirX !== 0) {
+            // 左右
+            gx += this.lastDirX * 20;
+            gy = this.player.y;
+            angle = this.lastDirX > 0 ? 0 : 180;
+        } else if (this.lastDirY < 0) {
+            // 上
+            gx = this.player.x;
+            gy = this.player.y - 20;
+            angle = -90;
+        } else if (this.lastDirY > 0) {
+            // 下
+            gx = this.player.x;
+            gy = this.player.y + 20;
+            angle = 90;
+        }
+        this.gun.setPosition(gx, gy);
+        this.gun.setAngle(angle);
 
         // 射击
         if (this.keys.J.isDown || this.keys.SPACE.isDown) {
