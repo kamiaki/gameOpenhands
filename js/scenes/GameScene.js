@@ -25,7 +25,7 @@ class GameScene extends Phaser.Scene {
         // —— 状态 ——
         this.hp = 5;
         this.shootCooldown = 0;
-        this.lastDirX = 1;
+        this.lastDirX = 0;
         this.lastDirY = 0;
 
         // —— HUD ——
@@ -50,9 +50,9 @@ class GameScene extends Phaser.Scene {
         this.player.setDepth(10);
 
         // —— 枪（标识朝向，从身体伸出） ——
-        this.gun = this.add.sprite(this.startX + 20, this.startY, 'gun_tex');
+        this.gun = this.add.sprite(this.startX + 22, this.startY, 'gun_tex');
         this.gun.setDepth(11);
-        this.gun.setOrigin(0, 0.5);
+        this.gun.setOrigin(0.5);
 
         // —— 子弹 ——
         this.bullets = this.physics.add.group();
@@ -287,29 +287,23 @@ class GameScene extends Phaser.Scene {
         // 归一化斜向移动
         if (vx !== 0 && vy !== 0) { vx *= 0.707; vy *= 0.707; }
 
-        // 记录朝向
-        if (vx !== 0) this.lastDirX = vx > 0 ? 1 : -1;
-        if (vy !== 0) this.lastDirY = vy > 0 ? 1 : -1;
+        // 记录朝向（清零无输入的方向）
+        this.lastDirX = vx > 0 ? 1 : (vx < 0 ? -1 : 0);
+        this.lastDirY = vy > 0 ? 1 : (vy < 0 ? -1 : 0);
 
         this.player.setVelocity(vx, vy);
 
         // 枪跟着玩家，朝四个方向旋转
+        const gunOff = 22;
         let gx = this.player.x, gy = this.player.y, angle = 0;
-        if (this.lastDirX !== 0) {
-            // 左右
-            gx += this.lastDirX * 20;
-            gy = this.player.y;
-            angle = this.lastDirX > 0 ? 0 : 180;
+        if (this.lastDirX > 0) {
+            gx += gunOff; angle = 0;
+        } else if (this.lastDirX < 0) {
+            gx -= gunOff; angle = 180;
         } else if (this.lastDirY < 0) {
-            // 上
-            gx = this.player.x;
-            gy = this.player.y - 20;
-            angle = -90;
+            gy -= gunOff; angle = -90;
         } else if (this.lastDirY > 0) {
-            // 下
-            gx = this.player.x;
-            gy = this.player.y + 20;
-            angle = 90;
+            gy += gunOff; angle = 90;
         }
         this.gun.setPosition(gx, gy);
         this.gun.setAngle(angle);
