@@ -27,6 +27,9 @@ class GameScene extends Phaser.Scene {
         this.shootCooldown = 0;
         this.lastDirX = 0;
         this.lastDirY = 0;
+        this.debugText = this.add.text(width / 2, 50, '', {
+            fontSize: '16px', color: '#ffff00', fontFamily: 'monospace'
+        }).setOrigin(0.5, 0).setDepth(99);
 
         // —— HUD ——
         this.hpText = this.add.text(16, 16, '❤️ x ' + this.hp, {
@@ -292,6 +295,8 @@ class GameScene extends Phaser.Scene {
         this.lastDirY = vy > 0 ? 1 : (vy < 0 ? -1 : 0);
 
         this.player.setVelocity(vx, vy);
+
+        this.debugText.setText('dirX=' + this.lastDirX + ' dirY=' + this.lastDirY + ' vy=' + vy);
 
         // 枪跟着玩家，朝四个方向旋转
         const gunOff = 22;
