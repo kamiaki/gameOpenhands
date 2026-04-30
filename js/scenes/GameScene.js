@@ -27,7 +27,6 @@ class GameScene extends Phaser.Scene {
         this.shootCooldown = 0;
         this.lastDirX = 1;
         this.lastDirY = 0;
-        this.facingLeft = false;
 
         // —— HUD ——
         this.hpText = this.add.text(16, 16, '❤️ x ' + this.hp, {
@@ -198,13 +197,13 @@ class GameScene extends Phaser.Scene {
         this.shootCooldown = 250;
 
         // 子弹从枪口发出，纯水平方向
-        const offsetX = this.facingLeft ? -26 : 26;
-        const bx = this.player.x + offsetX;
+        const dir = this.lastDirX < 0 ? -1 : 1;
+        const bx = this.player.x + dir * 26;
         const by = this.player.y;
         const bullet = this.bullets.create(bx, by, 'bullet_tex');
         bullet.setDepth(8);
         bullet.body.setAllowGravity(false);
-        bullet.setVelocity(this.facingLeft ? -400 : 400, 0);
+        bullet.setVelocity(dir * 400, 0);
         bullet.setCollideWorldBounds(true);
         // 出界自动销毁
         this.time.delayedCall(2000, () => { if (bullet.active) bullet.destroy(); });
@@ -277,19 +276,16 @@ class GameScene extends Phaser.Scene {
         if (vx !== 0 && vy !== 0) { vx *= 0.707; vy *= 0.707; }
 
         // 记录朝向
-        if (vx !== 0) { this.lastDirX = vx > 0 ? 1 : -1; this.facingLeft = vx < 0; }
+        if (vx !== 0) this.lastDirX = vx > 0 ? 1 : -1;
         if (vy !== 0) this.lastDirY = vy > 0 ? 1 : -1;
 
         this.player.setVelocity(vx, vy);
 
-        // 枪跟着玩家（伸出身体外侧）
-        if (this.facingLeft) {
-            this.gun.setPosition(this.player.x - 20, this.player.y);
-            this.gun.setScale(-1, 1);
-        } else {
-            this.gun.setPosition(this.player.x + 20, this.player.y);
-            this.gun.setScale(1, 1);
-        }
+        // 枪跟着玩家，根据最后朝向左右切换
+        const gunOnLeft = this.lastDirX < 0;
+        const gunOffX = gunOnLeft ? -20 : 20;
+        this.gun.setPosition(this.player.x + gunOffX, this.player.y);
+        this.gun.setScale(gunOnLeft ? -1 : 1, 1);
 
         // 射击
         if (this.keys.J.isDown || this.keys.SPACE.isDown) {
